@@ -1,4 +1,4 @@
-# YouTube Subtitle Crawler - 自動抓取 YouTube 頻道字幕並發送到 Discord
+## YouTube Subtitle Crawler - 自動抓取 YouTube 頻道字幕並發送到 Discord
 
 ## 專案功能：
 
