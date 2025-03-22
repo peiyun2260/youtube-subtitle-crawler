@@ -1,43 +1,42 @@
-IMAGE_NAME = youtube-sub-crawler
-VOLUME_PATH = $(shell pwd)/subtitles
-CRON_SCHEDULE = 0 22 * * *   # 每天晚上10點執行
-CRON_CMD = docker run --rm --env-file $(shell pwd)/.env -v $(VOLUME_PATH):/app/subtitles $(IMAGE_NAME)
+DOCKER_PATH := $(shell which docker)
+PROJECT_PATH := $(PWD)
+LOG_FILE := $(PROJECT_PATH)/cron.log
+ENV_FILE := $(PROJECT_PATH)/.env
+SUBTITLES_DIR := $(PROJECT_PATH)/subtitles
+DOWNLOADED_JSON := $(PROJECT_PATH)/downloaded.json
+IMAGE_NAME := youtube-sub-crawler
 
-.PHONY: build run clean logs prune images cron show-cron
-
-# 建 image
+# 建置 Docker Image
 build:
-	docker build -t $(IMAGE_NAME) .
+	$(DOCKER_PATH) build -t $(IMAGE_NAME) .
 
-# 執行一次
+# 手動執行一次
 run:
-	docker run --rm --env-file .env \
-	-v $(PWD)/subtitles:/app/subtitles \
-	-v $(PWD)/downloaded.json:/app/downloaded.json \
-	youtube-sub-crawler
-	
-# 刪 image
-clean:
-	docker rmi $(IMAGE_NAME) || true
+	$(DOCKER_PATH) run --rm --env-file $(ENV_FILE) \
+		-v $(SUBTITLES_DIR):/app/subtitles \
+		-v $(DOWNLOADED_JSON):/app/downloaded.json \
+		$(IMAGE_NAME)
 
-# 清光無用資源
-prune:
-	docker system prune -a -f
-
-# 看 images
-images:
-	docker images
-
-# 自動寫入 crontab
+# 加入排程（每天 22:00）
 cron:
-	(crontab -l 2>/dev/null | grep -v '$(IMAGE_NAME)'; echo "$(CRON_SCHEDULE) $(CRON_CMD) >> $(shell pwd)/cron.log 2>&1") | crontab -
-	@echo "✅ 已成功加入 cron 排程"
+	(crontab -l 2>/dev/null | grep -v 'youtube-sub-crawler'; \
+	 echo "00 22 * * * echo '========== $$(date) Start ==========' >> $(LOG_FILE) && $(DOCKER_PATH) run --rm --env-file $(ENV_FILE) -v $(SUBTITLES_DIR):/app/subtitles -v $(DOWNLOADED_JSON):/app/downloaded.json $(IMAGE_NAME) >> $(LOG_FILE) 2>&1") | crontab -
+	@echo "✅ 已成功加入 cron 排程 (每天 22:00 執行)"
 
-# 查看目前 crontab
+# 查看目前 cron 排程
 show-cron:
-	crontab -l | grep $(IMAGE_NAME) || echo "⚠️ 尚未排程"
+	crontab -l
 
-# 移除這個 cron 排程
+# 移除排程
 remove-cron:
-	(crontab -l | grep -v '$(IMAGE_NAME)') | crontab -
-	@echo "✅ 已移除排程"
+	(crontab -l 2>/dev/null | grep -v 'youtube-sub-crawler') | crontab -
+	@echo "✅ 已移除 cron 排程"
+
+# 清空 log
+log-clean:
+	truncate -s 0 $(LOG_FILE)
+	@echo "✅ cron.log 已清空"
+
+# 清理無用 Docker image
+prune:
+	$(DOCKER_PATH) system prune -f
