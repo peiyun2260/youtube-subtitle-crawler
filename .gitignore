@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+downloaded.json
+cron.log
+subtitles/
+crawler_env/
